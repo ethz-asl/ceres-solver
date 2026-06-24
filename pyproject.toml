@@ -1,0 +1,46 @@
+[build-system]
+requires = ["scikit-build-core>=0.5.1"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "ceres-solver"
+version = "2.2.0"
+description = "A large scale non-linear optimization library"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "BSD-3-Clause"
+authors = [
+  { name = "Google Inc." },
+  { name = "Keir Mierle", email = "keir@google.com" },
+  { name = "Sameer Agarwal", email = "sameeragarwal@google.com" },
+]
+
+[tool.scikit-build]
+# Build the CMake project rooted at this repository.
+cmake.source-dir = "."
+cmake.build-type = "Release"
+
+# The full CMake install (libs + headers + CeresConfig.cmake) is packed into
+# the wheel root using the default install-dir. The config then lands at
+# <site-packages>/lib/cmake/Ceres, which scikit-build-core adds to
+# CMAKE_PREFIX_PATH via search.site-packages so downstream `find_package(Ceres)`
+# can locate it.
+
+[tool.scikit-build.search]
+# Let consumers find this package's CMake config in site-packages (default).
+site-packages = true
+
+[tool.scikit-build.cmake.define]
+CMAKE_POSITION_INDEPENDENT_CODE = "ON"
+BUILD_TESTING = "OFF"
+BUILD_SHARED_LIBS = "ON"
+BUILD_EXAMPLES = "OFF"
+BUILD_BENCHMARKS = "OFF"
+BUILD_DOCUMENTATION = "OFF"
+SUITESPARSE = "ON"
+EIGENSPARSE = "ON"
+EIGENMETIS = "ON"
+USE_CUDA = "OFF"
+LAPACK = "ON"
+SCHUR_SPECIALIZATIONS = "ON"
+CUSTOM_BLAS = "ON"
