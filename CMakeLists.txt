@@ -325,21 +325,50 @@ endif (NOT SuiteSparse_Partition_FOUND)
 if (EIGENMETIS)
   find_package (METIS)
   if (METIS_FOUND)
-    # Since METIS is a private dependency of Ceres, it requires access to the
-    # link-only METIS::METIS target to avoid undefined linker errors in projects
-    # relying on Ceres. We do not actually need to propagate anything besides
-    # the link libraries (such as include directories.)
-    set(METIS_DEPENDENCY "find_dependency(METIS ${METIS_VERSION})")
-    # METIS find module must be installed unless a package config is being used.
-    if (NOT METIS_DIR)
-      install(FILES ${Ceres_SOURCE_DIR}/cmake/FindMETIS.cmake
-              DESTINATION ${RELATIVE_CMAKECONFIG_INSTALL_DIR})
-    endif (NOT METIS_DIR)
-  else (METIS_FOUND)
+    # Ceres uses int storage indices with Eigen's METIS ordering. Some
+    # distributions (including SuiteSparse's bundled METIS) use 64-bit idx_t,
+    # which older Eigen versions cannot convert. Check the actual interface
+    # before enabling it; finding the library alone is not sufficient.
+    include(CheckCXXSourceCompiles)
+    include(CMakePushCheckState)
+    cmake_push_check_state(RESET)
+    set(CMAKE_REQUIRED_LIBRARIES Eigen3::Eigen METIS::METIS)
+    check_cxx_source_compiles("
+      #include <iostream>
+      #include <Eigen/SparseCore>
+      #include <Eigen/MetisSupport>
+      int main() {
+        Eigen::SparseMatrix<double> matrix(1, 1);
+        matrix.insert(0, 0) = 1.0;
+        Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic, int> perm;
+        Eigen::MetisOrdering<int> ordering;
+        ordering(matrix, perm);
+        return 0;
+      }" CERES_EIGEN_METIS_COMPATIBLE)
+    cmake_pop_check_state()
+    if (NOT CERES_EIGEN_METIS_COMPATIBLE)
+      message(WARNING "Eigen METIS ordering is incompatible with Ceres' int "
+                      "indices; disabling EIGENMETIS. Eigen AMD and SuiteSparse "
+                      "support are unaffected.")
+      update_cache_variable(EIGENMETIS OFF)
+    endif ()
+  else ()
     message("-- Did not find METIS, disabling Eigen METIS support.")
     update_cache_variable(EIGENMETIS OFF)
-    list (APPEND CERES_COMPILE_OPTIONS CERES_NO_EIGEN_METIS)
-  endif (METIS_FOUND)
+  endif ()
+endif ()
+
+if (EIGENMETIS)
+  # Since METIS is a private dependency of Ceres, it requires access to the
+  # link-only METIS::METIS target to avoid undefined linker errors in projects
+  # relying on Ceres. We do not actually need to propagate anything besides
+  # the link libraries (such as include directories.)
+  set(METIS_DEPENDENCY "find_dependency(METIS ${METIS_VERSION})")
+  # METIS find module must be installed unless a package config is being used.
+  if (NOT METIS_DIR)
+    install(FILES ${Ceres_SOURCE_DIR}/cmake/FindMETIS.cmake
+            DESTINATION ${RELATIVE_CMAKECONFIG_INSTALL_DIR})
+  endif (NOT METIS_DIR)
 else (EIGENMETIS)
   message("-- Building without Eigen METIS support.")
   list (APPEND CERES_COMPILE_OPTIONS CERES_NO_EIGEN_METIS)
